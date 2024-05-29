@@ -1,4 +1,4 @@
-# Epedemic PDE simulator
+# Temporal Waves on Graphs
 
 ## Reference
 DOI: ? Bibtex: ? 
