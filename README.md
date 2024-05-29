@@ -56,6 +56,11 @@ dist = dist[2,:]
 
 will return an edge_index of 2088 connection, and their distances. 
 
+### Running the Training
 
+In order to start a training process, simply run any of the training scripts with 
+``` python train_<model_name>.py ```
+
+You can set the hyperparameters and other training related variables by modifying the corresponding configuration file ```ml/config/<model_name>.yml```.
 
 ## License
