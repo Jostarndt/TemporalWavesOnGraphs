@@ -69,51 +69,6 @@ def training_loss_plot(train, validation, name_string="", output_dir=""):
     plt.close()
 
 
-def plot_graph(val, pred, name_string, output_dir=""):
-    dist = torch.load("./nuts3_adjacent_distances").T
-    edge_index = dist[:2, :].int()
-    dist = (1/dist[2,:])
-
-    # next tile
-    path = "/srv/data/csvs/meta_data/shapefiles/5000_NUTS3.shp" #TODO fix this
-    gpd = geopandas.read_file(path).to_crs(epsg=4326)
-    gpd['lon'] = gpd['geometry'].to_crs(epsg=4326).centroid.x
-    gpd['lat'] = gpd['geometry'].to_crs(epsg=4326).centroid.y
-    pos = gpd.set_index('NUTS_CODE')[['lon','lat']].T.to_dict('list')
-    
-    name_dict = gpd[gpd["NUTS_CODE"]!="DEG0N"]["NUTS_CODE"].reset_index()
-    name_dict = name_dict.to_dict()
-
-    t_ones = torch.ones([400])
-    G = torch_geometric.data.Data(x=t_ones, edge_index=edge_index, edge_weight=dist)
-    G.edge_attr = G.edge_weight
-
-    G = torch_geometric.utils.to_networkx(G, edge_attrs=["edge_attr"])
-    G = G.to_undirected()
-    weights = list(nx.get_edge_attributes(G,"edge_attr").values())
-    weights = [a * 1.e5 for a in weights ]
-    
-    G = nx.relabel_nodes(G, name_dict["NUTS_CODE"])
-    
-    fig, axs = plt.subplots(2, 3,figsize=(10, 8))
-    stepsize = (val.shape[1]//2)-1
-    for i in range(1, val.shape[1], stepsize):
-        #for i in range(1,14,6):# (1, 28,13):# 
-        nx.draw_networkx(G,node_size=50, vmin=0.0, vmax=0.5, with_labels=False,alpha=1,width=weights,node_color=val[:,i,:].squeeze().cpu(),edge_color=(0.27, 0.1, 0.01),pos = pos, ax = axs[0, i//stepsize])
-        nx.draw_networkx(G,node_size=50, vmin=0.0, vmax=0.5, with_labels=False,alpha=1,width=weights,node_color=pred[:,i,:].squeeze().cpu(),edge_color=(0.27, 0.1, 0.01),pos = pos, ax = axs[1, i//stepsize])
-        axs[1, i//stepsize].set_xlabel(f"t = {i}")
-
-    axs[0, 0].set_ylabel("Ground Truth")
-    axs[1, 0].set_ylabel("Prediction")
-
-    #fig.colorbar(cmp, cax=cax)#, shrink=0.6)#, ax=axs[:,-1], shrink=0.6)
-
-    #plt.figlegend()
-
-    filepath = os.path.join(output_dir, f"{name_string}_Graph")
-    plt.savefig(filepath)
-    plt.close()
-
 def daily_loss_plot(daily_loss, name_string, output_dir):
     filepath = os.path.join(output_dir, f"{name_string}_daily_loss")
     plt.plot(daily_loss.cpu())

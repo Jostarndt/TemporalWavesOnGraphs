@@ -108,7 +108,7 @@ for data_sources in data_sources_list:
         os.makedirs(config.output_name, exist_ok=True)
 
         # Model setup for each run to ensure it starts fresh
-        model = models.ICLRTransformerModel(
+        model = models.TST(
             ntoken=1, 
             d_model=config.d_model, 
             nhead=config.n_heads, 

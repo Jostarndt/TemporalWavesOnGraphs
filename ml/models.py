@@ -870,7 +870,7 @@ class Brandstetter_MP_PDE_Solver(torch.nn.Module):
 
 
 # taken from https://github.com/HySonLab/pandemic_tgnn/blob/main/code/models.py
-class HySon_MP_LSTM(nn.Module):
+class GraphEncodingModel(nn.Module):
     def __init__(self, nfeat, nhid, nout, n_nodes, window, dropout,forecast_length, device):
         super().__init__()
         self.forecast_length = forecast_length
@@ -957,9 +957,9 @@ class HySon_MP_LSTM(nn.Module):
 
 
 
-class ICLRTransformerModel(nn.Module):
+class TST(nn.Module):
     def __init__(self, ntoken, d_model, nhead, d_hid, nlayers, dropout=0.5):
-        super(ICLRTransformerModel, self).__init__()
+        super(TST, self).__init__()
         self.model_type = 'Transformer'
 
         # Encoder and Decoder layers

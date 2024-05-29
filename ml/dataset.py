@@ -55,8 +55,6 @@ class SimulationDenoisingDataset(torch.utils.data.Dataset):
 
 class WaveDataset(torch.utils.data.Dataset):
     path = os.path.join('..', 'data', 'wave_equation', 'wave_dataset.npy')
-    path = "/srv/data/csvs/simulation/wave_dataset.npy" #TODO fix
-
 
     def __init__(self, context_len, forecast_len, stride=1, transform = None):
         self.context_len = context_len
@@ -79,7 +77,6 @@ class WaveDataset(torch.utils.data.Dataset):
 
 class AdvectionDiffusionDataset(torch.utils.data.Dataset):
     path = os.path.join('..', 'data', 'advection_diffusion', 'advection_diffusion_numpy_dataset.npy')
-    path = "/srv/data/csvs/simulation/advection_diffusion_numpy_dataset.npy" #TODO fix
 
     def __init__(self, context_len, forecast_len, stride=1, transform = None):
         self.context_len = context_len
