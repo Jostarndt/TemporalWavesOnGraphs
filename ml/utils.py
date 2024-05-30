@@ -112,7 +112,7 @@ def get_dataset(key, config, train):
     return dataset_map[key](config.encoder_length, config.forecast_length, transform=combined_transform)
 
 def get_adjacency(key, device):
-    filename = 'germany_coastline_adjacency' if key == 'wave' else 'nuts3_adjacent_distances'
+    filename = 'germany_coastline_adjacency.pt' if key == 'wave' else 'nuts3_adjacent_distances.pt'
 
     adjacent_distances = torch.load(os.path.join('..', 'data', 'adjacency', filename)).T.to(device)
     edge_index = adjacent_distances[:2, :].int()
