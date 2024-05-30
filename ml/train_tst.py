@@ -7,7 +7,7 @@ from config_loader import ConfigLoader
 import models
 import utils
 
-def train(model, train_loader, validation_loader, optimizer, loss_func, device, config):
+def train(model, train_loader, validation_loader, optimizer, loss_func, dist, edge_index, device, config):
     start_time = time.time()  # Start timing
     
     logged_loss_val = []
@@ -88,57 +88,60 @@ def train(model, train_loader, validation_loader, optimizer, loss_func, device, 
     utils.training_loss_plot(logged_loss_train, logged_loss_val, name_string=config.output_name, output_dir=config.output_name)
 
     torch.save(model, os.path.join(config.output_name, config.output_name))
+def main():
+    # Load configuration and setup
+    config = ConfigLoader("tst.yml").get_config()
+    device = torch.device(f"cuda:{config.device}" if torch.cuda.is_available() else "cpu")
 
-# Load configuration and setup
-config = ConfigLoader("TsT.yml").get_config()
-device = torch.device(f"cuda:{config.device}" if torch.cuda.is_available() else "cpu")
+    # Data loading and training
+    data_sources_list = config.datasources
+    for data_sources in data_sources_list:
+        datasets = [utils.get_dataset(data_source, config, train=True) for data_source in data_sources]
+        train_dataset = ConcatDataset([torch.utils.data.Subset(ds, range(0, int(0.8 * len(ds)))) for ds in datasets])
+        validation_dataset = ConcatDataset([torch.utils.data.Subset(ds, range(int(0.8 * len(ds)), len(ds))) for ds in datasets])
+        dist, edge_index = utils.get_adjacency(data_sources[0], device) # Should be the case that all elements of data_sources are from the same region
 
-# Data loading and training
-data_sources_list = config.datasources
-for data_sources in data_sources_list:
-    datasets = [utils.get_dataset(data_source, config, train=True) for data_source in data_sources]
-    train_dataset = ConcatDataset([torch.utils.data.Subset(ds, range(0, int(0.8 * len(ds)))) for ds in datasets])
-    validation_dataset = ConcatDataset([torch.utils.data.Subset(ds, range(int(0.8 * len(ds)), len(ds))) for ds in datasets])
-    dist, edge_index = utils.get_adjacency(data_sources[0], device) # Should be the case that all elements of data_sources are from the same region
+        # Training runs
+        for run in range(config.num_train_runs):
+            # Modify output name to include run number
+            config.output_name = f"{config.model_name}_{run}_" + '_'.join([ds[:4] for ds in data_sources])
+            os.makedirs(config.output_name, exist_ok=True)
 
-    # Training runs
-    for run in range(config.num_train_runs):
-        # Modify output name to include run number
-        config.output_name = f"{config.model_name}_{run}_" + '_'.join([ds[:4] for ds in data_sources])
-        os.makedirs(config.output_name, exist_ok=True)
+            # Model setup for each run to ensure it starts fresh
+            model = models.TST(
+                ntoken=1, 
+                d_model=config.d_model, 
+                nhead=config.n_heads, 
+                d_hid=config.d_hid, 
+                nlayers=config.layers, 
+                dropout=config.dropout).to(device)
+            
+            if 'simulation' in data_sources and len(data_sources) > 1: # Load pre-trained model           
+                dist, edge_index = utils.get_adjacency(data_sources[1], device) # Should be the case that all elements of data_sources are from the same region
+                datasets = [utils.get_dataset(data_source, config, train=True) for data_source in [data_sources[1]]]
+                train_dataset = ConcatDataset([torch.utils.data.Subset(ds, range(0, int(0.8 * len(ds)))) for ds in datasets])
+                validation_dataset = ConcatDataset([torch.utils.data.Subset(ds, range(int(0.8 * len(ds)), len(ds))) for ds in datasets])
+                model_dir = f"{config.model_name}_{run}_" + 'simu'
+                model_path = os.path.join(model_dir, model_dir)
+                if not os.path.exists(model_path):
+                    print(f"Model path {model_path} does not exist. Skipping.")
+                    continue
 
-        # Model setup for each run to ensure it starts fresh
-        model = models.TST(
-            ntoken=1, 
-            d_model=config.d_model, 
-            nhead=config.n_heads, 
-            d_hid=config.d_hid, 
-            nlayers=config.layers, 
-            dropout=config.dropout).to(device)
-        
-        if 'simulation' in data_sources and len(data_sources) > 1: # Load pre-trained model           
-            dist, edge_index = utils.get_adjacency(data_sources[1], device) # Should be the case that all elements of data_sources are from the same region
-            datasets = [utils.get_dataset(data_source, config, train=True) for data_source in [data_sources[1]]]
-            train_dataset = ConcatDataset([torch.utils.data.Subset(ds, range(0, int(0.8 * len(ds)))) for ds in datasets])
-            validation_dataset = ConcatDataset([torch.utils.data.Subset(ds, range(int(0.8 * len(ds)), len(ds))) for ds in datasets])
-            model_dir = f"{config.model_name}_{run}_" + 'simu'
-            model_path = os.path.join(model_dir, model_dir)
-            if not os.path.exists(model_path):
-                print(f"Model path {model_path} does not exist. Skipping.")
-                continue
+                model = torch.load(model_path).to(device)
+                model.device = device
 
-            model = torch.load(model_path).to(device)
-            model.device = device
+            total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+            print(f"Number of trainable model parameters: {total_params}")      
 
-        total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-        print(f"Number of trainable model parameters: {total_params}")      
+            loss_func = models.RMSELoss()
+            optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay)
+            
+            # DataLoader setup for each run
+            train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True, num_workers=24)
+            validation_loader = DataLoader(validation_dataset, batch_size=1, shuffle=False, num_workers=24)
 
-        loss_func = models.RMSELoss()
-        optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay)
-        
-        # DataLoader setup for each run
-        train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True, num_workers=24)
-        validation_loader = DataLoader(validation_dataset, batch_size=1, shuffle=False, num_workers=24)
+            # Train the model for this run
+            train(model, train_loader, validation_loader, optimizer, loss_func, dist, edge_index, device, config)
 
-        # Train the model for this run
-        train(model, train_loader, validation_loader, optimizer, loss_func, device, config)
+if __name__ == "__main__":
+    main()

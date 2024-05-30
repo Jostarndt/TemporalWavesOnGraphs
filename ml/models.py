@@ -173,7 +173,7 @@ class GCN(torch.nn.Module):
         return x
 
 
-class TimeAndGraph(nn.Module):
+class RNN_GNN_Fusion(nn.Module):
     def __init__(
             self,
             rnn_hidden_size,
@@ -273,25 +273,6 @@ class TimeAndGraph(nn.Module):
                     decoder_output[:, i] = out#[400,1]
         return decoder_output, enc_output
 
-class PositionalEncodingOld(nn.Module):
-    # taken from https://towardsdatascience.com/how-to-make-a-pytorch-transformer-for-time-series-forecasting-69e073d4061e
-    def __init__(self, dropout, seq_len, d_model, offset=0, device='cpu'):
-        super().__init__()
-        self.dropout = nn.Dropout(p=dropout)
-        self.d_model = d_model
-        position = torch.arange(start=offset, end=offset + seq_len).unsqueeze(1)
-        div_term = torch.exp(
-            torch.arange(0, d_model, 2) * (-math.log(10000.0) / d_model)
-        )
-        pe = torch.zeros(1, seq_len, d_model).to(device)
-        pe[0, :, 0::2] = torch.sin(position * div_term)
-        pe[0, :, 1::2] = torch.cos(position * div_term)
-        self.register_buffer("pe", pe)
-
-    def forward(self, x, reverse=False):
-        if reverse:
-            self.pe = - self.pe
-        return self.dropout(x + self.pe)
 
 
 class TSTEmbedding(nn.Module):
@@ -376,7 +357,7 @@ class CustomMessagePassing(MessagePassing):
 # Brandstetter from here on
 # taken from https://github.com/brandstetter-johannes/MP-Neural-PDE-Solvers/blob/master/experiments/models_gnn.py
 
-class BrandstetterSwish(nn.Module):
+class Swish(nn.Module):
     """
     Swish activation function
     """
@@ -388,7 +369,7 @@ class BrandstetterSwish(nn.Module):
         return x * torch.sigmoid(self.beta*x)
 
 
-class Brandstetter_GNN_Layer(MessagePassing):
+class GNN_Layer(MessagePassing):
     """
     Message passing layer
     """
@@ -413,16 +394,16 @@ class Brandstetter_GNN_Layer(MessagePassing):
         self.hidden_features = hidden_features
 
         self.message_net_1 = nn.Sequential(nn.Linear(2 * in_features + time_window + 1, hidden_features),
-                                           BrandstetterSwish()
+                                           Swish()
                                            )
         self.message_net_2 = nn.Sequential(nn.Linear(hidden_features, hidden_features),
-                                           BrandstetterSwish()
+                                           Swish()
                                            )
         self.update_net_1 = nn.Sequential(nn.Linear(in_features + hidden_features, hidden_features),
-                                          BrandstetterSwish()
+                                          Swish()
                                           )
         self.update_net_2 = nn.Sequential(nn.Linear(hidden_features, out_features),
-                                          BrandstetterSwish()
+                                          Swish()
                                           )
         # TODO read this
         self.norm = torch_geometric.nn.InstanceNorm(hidden_features)
@@ -457,7 +438,7 @@ class Brandstetter_GNN_Layer(MessagePassing):
         #    return update
 
 
-class Brandstetter_MP_PDE_Solver(torch.nn.Module):
+class MP_PDE_Solver(torch.nn.Module):
     """
     MP-PDE solver class
     """
@@ -487,7 +468,7 @@ class Brandstetter_MP_PDE_Solver(torch.nn.Module):
         self.time_window = time_window
         # self.eq_variables = eq_variables
 
-        self.gnn_layers = torch.nn.ModuleList(modules=(Brandstetter_GNN_Layer(
+        self.gnn_layers = torch.nn.ModuleList(modules=(GNN_Layer(
             in_features=self.hidden_features,
             hidden_features=self.hidden_features,
             out_features=self.hidden_features,
@@ -496,7 +477,7 @@ class Brandstetter_MP_PDE_Solver(torch.nn.Module):
         ) for _ in range(self.hidden_layer - 1)))
 
         # The last message passing last layer has a fixed output size to make the use of the decoder 1D-CNN easier
-        self.gnn_layers.append(Brandstetter_GNN_Layer(in_features=self.hidden_features,
+        self.gnn_layers.append(GNN_Layer(in_features=self.hidden_features,
                                          hidden_features=self.hidden_features,
                                          out_features=self.hidden_features,
                                          time_window=self.time_window,
@@ -505,30 +486,30 @@ class Brandstetter_MP_PDE_Solver(torch.nn.Module):
                                )
         self.embedding_mlp = nn.Sequential(
             nn.Linear(self.time_window, self.hidden_features),
-            BrandstetterSwish(),
+            Swish(),
             nn.Linear(self.hidden_features, self.hidden_features),
-            BrandstetterSwish()
+            Swish()
         )
 
         # Decoder CNN, maps to different outputs (temporal bundling)
         if(self.time_window==14):
             self.output_mlp = nn.Sequential(nn.Conv1d(1, 8, 15, stride=5),
-                                            BrandstetterSwish(),
+                                            Swish(),
                                             nn.Conv1d(8, 1, 10, stride=1)
                                             )
         elif(self.time_window==20):
             self.output_mlp = nn.Sequential(nn.Conv1d(1, 8, 15, stride=4),
-                                            BrandstetterSwish(),
+                                            Swish(),
                                             nn.Conv1d(8, 1, 10, stride=1)
                                             )
         elif (self.time_window == 25):
             self.output_mlp = nn.Sequential(nn.Conv1d(1, 8, 16, stride=3),
-                                            BrandstetterSwish(),
+                                            Swish(),
                                             nn.Conv1d(8, 1, 14, stride=1)
                                             )
         elif(self.time_window==50):
             self.output_mlp = nn.Sequential(nn.Conv1d(1, 8, 12, stride=2),
-                                            BrandstetterSwish(),
+                                            Swish(),
                                             nn.Conv1d(8, 1, 10, stride=1)
                                             )
 
@@ -585,7 +566,7 @@ class Brandstetter_MP_PDE_Solver(torch.nn.Module):
 
 
 # taken from https://github.com/HySonLab/pandemic_tgnn/blob/main/code/models.py
-class GraphEncodingModel(nn.Module):
+class GraphEncoding(nn.Module):
     def __init__(self, nfeat, nhid, nout, n_nodes, window, dropout,forecast_length, device):
         super().__init__()
         self.forecast_length = forecast_length
