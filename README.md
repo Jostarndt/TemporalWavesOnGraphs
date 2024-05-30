@@ -43,13 +43,13 @@ to 9100 timesteps, 400 locations/nodes/NUTS3 regions, and two values:
 Susceptible and Infected.
 
 The Nodes are the alphabetically ordered NUTS3 regions. Their 
-adjacencies and distances can be found in the file *nuts3_adjacent_distances", 
+adjacencies and distances can be found in the file ```data/adjacency/nuts3_adjacent_distances.pt```, 
 which can directly loaded as a PyTorch tensor with the
 following code:
 
 
 ```
-dist = torch.load("nuts3_adjacent_distances").T
+dist = torch.load("nuts3_adjacent_distances.pt").T
 edge_index = dist[:2, :].int()
 dist = dist[2,:]
 ```
