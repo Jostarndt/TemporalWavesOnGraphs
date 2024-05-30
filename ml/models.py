@@ -1,16 +1,9 @@
 import math
-import warnings
 
 import torch
 import torch.nn as nn
-import pmdarima as pm 
-import numpy as np
 import torch_geometric
 from torch_geometric.nn import MessagePassing
-from torch_geometric.utils import add_self_loops, degree
-import networkx
-from transformers import TimeSeriesTransformerConfig, TimeSeriesTransformerForPrediction
-import pdb
 
 
 class RNNDecoder(nn.Module):
@@ -135,126 +128,6 @@ class EncoderDecoder(nn.Module):
         return decoder_output, enc_output
 
 
-class baseline_lag(nn.Module):
-    """
-    Only applicable for inference mode.
-    """
-
-    def __init__(self, out_size,  lag_length=1):
-        super().__init__()
-        self.lag_length = lag_length
-        self.empty_para = torch.nn.Parameter(torch.eye(2))
-        self.out_size = out_size
-
-    def forward(
-        self,
-        encoder_input,
-        decoder_input,
-        static,
-        edge_attr,
-        stat_edge_index,
-        dyn_e_idx,
-        dyn_e_attr,
-        target,
-        train_mask=None
-    ):
-        # returns the lag_lengths last input as an ouput. TODO which dimension is covid?
-        output = encoder_input[:, -self.lag_length :, 0]
-        output_length = self.out_size #decoder_input.shape[1]
-        if self.out_size == self.lag_length :
-            output = output
-        elif self.out_size < self.lag_length :
-            output = output[:, -self.out_size:]
-        elif self.out_size > self.lag_length :
-            output = torch.cat(
-                (
-                    output,
-                    output[:, -1]
-                    .unsqueeze(-1)
-                    .repeat(1, self.out_size - output.shape[1]),
-                ),
-                1,
-            )
-        return output.unsqueeze(2), None  # None is the encoder ouput
-
-
-class ARIMA_pmd(nn.Module):
-    """
-    Only applicable for inference mode.
-    """
-
-    def __init__(self):
-        super().__init__()
-        self.empty_para = torch.nn.Parameter(torch.eye(2))
-
-    def forward(
-        self,
-        encoder_input,
-        decoder_input,
-        static,
-        edge_attr,
-        stat_edge_index,
-        dyn_e_idx,
-        dyn_e_attr,
-        target,
-        train_mask=None
-    ):
-        output_length = decoder_input.shape[1]
-        # DOES batching work? -TODO  github issue #528 in the pmdarima
-        assert encoder_input.shape[0] == 400
-        forecast = []
-        # TODO read http://alkaline-ml.com/pmdarima/develop/tips_and_tricks.html this
-        with warnings.catch_warnings():
-            warnings.filterwarnings(
-                "ignore", message="Input time-series is completely constant;"
-            )
-            for i in range(400):
-                # EXTREMELY SLOW!
-                # TODO USE ARMA with parameters instead of ARIMA like:
-                # arima_model =  pm.ARIMA(order=(1, 0, 1))
-                # arima_model.fit(encoder_input[i, :, 0])
-                arima_model = pm.auto_arima((encoder_input[i, :, 0]- encoder_input[i,:,0].mean())/(encoder_input[i,:,0].std() + 1e-7))
-                arima_tensor= arima_model.predict(output_length)
-                arima_output = torch.tensor(arima_tensor)*(encoder_input[i,:,0].std() +1e-7) + encoder_input[i,:,0].mean()
-                forecast.append(arima_output)
-        #forecast = np.asarray(forecast)
-        forecast = torch.stack(forecast)
-        return forecast, None
-
-
-class Accordion(nn.Module):
-    def __init__(self, **kwargs):
-        super(Accordion, self).__init__()
-        self.in_size = kwargs["in_size"]
-        self.accordion = nn.Sequential(
-            nn.Linear(self.in_size, 250),
-            nn.SiLU(),
-            nn.Linear(250, 500),
-            nn.SiLU(),
-            nn.Linear(500, 1000),
-            nn.SiLU(),
-            nn.Linear(1000, 500),
-            nn.SiLU(),
-            nn.Linear(500, 250),
-            nn.SiLU(),
-            nn.Linear(250, self.in_size),
-        )
-
-    def forward(
-        self,
-        encoder_input,
-        decoder_input,
-        static,
-        edge_attr,
-        stat_edge_index,
-        dyn_e_idx,
-        dyn_e_attr,
-        target,
-    ):
-        x = encoder_input[:, :, 0]
-        x = self.accordion(x)
-        return x.unsqueeze(-1), None
-
 
 class GCN(torch.nn.Module):
     def __init__(self, features, dropout):
@@ -298,78 +171,6 @@ class GCN(torch.nn.Module):
         x = x.type(torch.float)
         x = self.linear5(x)
         return x
-
-
-class TimeThenGraph(nn.Module):
-    """Autoencoder-like model, consisting of a RNNEncoder and a DecoderCell, see above."""
-    def __init__(
-        self,
-        rnn_hidden_size,
-        forecast_len,
-        output_len,
-        dropout,
-        device,
-    ):
-        super().__init__()
-        self.rnn = RNNDecoder(
-            in_feat_size=1,
-            out_feat_size=1,
-            hidden_size=rnn_hidden_size,
-            dropout=dropout,
-            num_layers=len(rnn_hidden_size),
-            device=device,
-        )
-        self.forecast_len = forecast_len
-        self.GCN = GCN(features=forecast_len,
-                dropout=dropout)
-        self.device = device
-        self.train_gcn = True
-
-        self.params = nn.ModuleDict({
-            'rnn': nn.ModuleList([self.rnn]),
-            'gnn': nn.ModuleList([self.GCN])})
-        
-        
-    def forward(
-        self,
-        encoder_input,
-        decoder_input,
-        static,
-        edge_attr,
-        stat_edge_index,
-        dyn_e_idx,
-        dyn_e_attr,
-        target,
-        train_mask=None,
-    ):
-        enc_output, prev_hidden = self.rnn(y=encoder_input)
-        y_prev = enc_output[:, -1, :].unsqueeze(1)
-
-        #Initialize
-        decoder_output = torch.zeros(
-            encoder_input.size(0), self.forecast_len, 1, device=self.device
-        ).float()
-        #Autoregressive
-        if not self.training:
-            for i in range(self.forecast_len):
-                y_prev, prev_hidden = self.rnn(
-                    y=y_prev, previous_hidden=prev_hidden
-                )
-                decoder_output[:, i] = y_prev.squeeze(1)
-
-        #in training teacher forcing is done!
-        elif self.training:
-            step_decoder_input = y_prev
-            for i in range(self.forecast_len):
-                y_prev, prev_hidden = self.rnn(
-                    y=step_decoder_input, previous_hidden=prev_hidden
-                )
-                step_decoder_input = target[:,i,:].unsqueeze(1)
-                decoder_output[:, i] = y_prev.squeeze(1)
-        # decoder_output, enc_output
-        graph_data = torch_geometric.data.Data(x = decoder_output.squeeze(), edge_index = stat_edge_index, edge_weight=edge_attr).to(self.device)
-        gnn_output = self.GCN(graph_data).unsqueeze(2)
-        return decoder_output, enc_output
 
 
 class TimeAndGraph(nn.Module):
@@ -515,91 +316,6 @@ class TSTEmbedding(nn.Module):
         # this is easily possible as 7*4 <<<< 64*8!
         return x
 
-
-
-
-class PureMPGNN(nn.Module): 
-    '''
-    '''
-
-    def __init__(
-        self,
-        input_length,
-        output_length,
-        device,
-    ):
-        super().__init__()
-        self.device = device
-        self.conv1 = torch_geometric.nn.GCNConv(input_length, output_length)
-        self.linear = nn.Linear(output_length, output_length, bias=True)
-        self.skip_connection = nn.Linear(input_length, output_length)
-        self.relu = torch.nn.ReLU()
-
-    def forward(
-        self,
-        encoder_input,
-        decoder_input,
-        static,
-        edge_attr,
-        stat_edge_index,
-        dyn_e_idx,
-        dyn_e_attr,
-        target,
-        train_mask=None
-    ):
-        #TODO normalize
-        mean = encoder_input[:,:,0].mean(dim=1)
-        std = encoder_input[:,:,0].std(dim=1) + 1e-7
-        GNN_input = ( encoder_input[:,:,0] - mean ) / std
-        graph_data = torch_geometric.data.Data(
-                x=GNN_input,
-                edge_index=stat_edge_index.squeeze(),
-                ).to(self.device)
-
-        x, edge_index = graph_data.x, graph_data.edge_index
-
-        x = self.conv1(x, edge_index)# + x#skip connection!
-        x = self.linear(x)
-        x = x * std + mean
-        return x, None
-        
-
-
-    def forward(self, 
-            encoder_input,
-            decoder_input,
-            static,
-            edge_attr,
-            stat_edge_index,
-            dyn_e_idx,
-            dyn_e_attr,
-            target=None,
-            train_mask=None,
-            output_length=None):
-        
-        past_observed_mask = torch.ones_like(encoder_input[:,:,0])
-
-        out = self.model(
-            past_values=encoder_input[:,:,0], 
-            past_time_features=self.pos_encoder.encodings(encoder_input), 
-            past_observed_mask=past_observed_mask,
-            future_values=target[:,:,0],
-            future_time_features=self.pos_encoder.encodings(target, shift=self.model.config.prediction_length)
-        )
-        
-        return out
-    
-    def generate(self, encoder_input, target):
-
-            past_observed_mask = torch.ones_like(encoder_input[:,:,0])
-            outputs = self.model.generate(
-                past_values=encoder_input[:,:,0],
-                past_time_features=self.pos_encoder.encodings(encoder_input),
-                past_observed_mask=past_observed_mask,
-                future_time_features=self.pos_encoder.encodings(target, shift=self.model.config.prediction_length),
-            )
-
-            return outputs
 
 class RMSELoss(nn.Module):
     def __init__(self):
@@ -868,7 +584,6 @@ class Brandstetter_MP_PDE_Solver(torch.nn.Module):
 
 
 
-
 # taken from https://github.com/HySonLab/pandemic_tgnn/blob/main/code/models.py
 class GraphEncodingModel(nn.Module):
     def __init__(self, nfeat, nhid, nout, n_nodes, window, dropout,forecast_length, device):
@@ -951,10 +666,6 @@ class GraphEncodingModel(nn.Module):
             orig_x = torch.cat((orig_x, x.unsqueeze(2)), dim=1)[:, 1:, :]
             x = orig_x
         return out.unsqueeze(2), None
-
-
-
-
 
 
 class TST(nn.Module):
@@ -1071,111 +782,3 @@ class PositionalEncoding(torch.nn.Module):
         # Use expand to match the batch size without explicit repetition and apply shift
         pe = self.pe[:, start_pos:end_pos].expand(x.size(0), -1, -1)
         return x + pe
-    
-
-
-class PureGraphTransformer(nn.Module):
-    def __init__(self, ntoken, d_model, nhead, d_hid, nlayers, dropout=0.5):
-        super(PureGraphTransformer, self).__init__()
-        self.model_type = 'Transformer'
-
-        # Encoder and Decoder layers
-        encoder_layers = nn.TransformerEncoderLayer(d_model, nhead, d_hid, dropout)
-        self.transformer_encoder = nn.TransformerEncoder(encoder_layers, nlayers)
-        decoder_layers = nn.TransformerDecoderLayer(d_model, nhead, d_hid, dropout)
-        self.transformer_decoder = nn.TransformerDecoder(decoder_layers, nlayers)
-
-        #from [batchsize, seq_len, input_dim] to [batchsize, seq_len, 
-        pdb.set_trace()
-        self.encoder_embedding = TSTEmbedding(input_size=14, d_model=d_model)
-        self.decoder_embedding = TSTEmbedding(input_size=14, d_model=d_model)
-
-        # self.positional_encoding = PositionalEncoding(d_model, dropout)
-        pdb.set_trace()
-        self.positional_encoding = PositionalEncoding(feature_size=128, max_len=800)
-
-        self.output_layer = nn.Linear(d_model, 1)#ntoken replaced with 1
-        # TODO d_hid should be used, in a multi-layer setting
-        self.output_layer = nn.Sequential(nn.Linear(d_model, d_hid),
-                nn.ReLU(),
-                nn.Linear(d_hid,14),
-                )
-        self.init_weights()
-        ortho_exists = false
-
-    def generate_square_subsequent_mask(self, sz):
-        mask = (torch.triu(torch.ones(sz, sz)) == 1).transpose(0, 1)
-        mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
-        return mask
-
-    def init_weights(self):
-        initrange = 0.1
-        self.output_layer[-1].bias.data.zero_()
-        self.output_layer[-1].weight.data.uniform_(-initrange, initrange)
-
-    def ortho_calc(encoder_input, edge_attr):
-        pdb.set_trace()
-        graph_laplac = PyG.utils.get_laplacian(encoder_input, edge_attr)
-        self.ortho_lap = graph_laplac.eigenvectors
-        ortho_exists = true
-
-    def forward(self,
-            encoder_input,
-            decoder_input,
-            static,
-            edge_attr,
-            stat_edge_index,
-            dyn_e_idx,
-            dyn_e_attr,
-            target,
-            train_mask):
-        # link function to defined
-        src=encoder_input
-        src_mask=None
-        src_padding_mask=None
-        tgt=target
-        # tgt_mask=None
-        #target_sequence_length = tgt.size(1) # 14?!
-        #tgt_mask = self.generate_square_subsequent_mask(target_sequence_length).to(tgt.device)
-        is_inference=True if tgt == None else False
-        pdb.set_trace()
-        # TODO s
-        # 1. Read the paper Pure Transformers are Powerful Graph learners
-        # 2. Create n orthonormal vectors, use laplacian eigenvectors as described in the paper
-        if not ortho_exists:
-            pdb.set_trace()
-            self.ortho_calc(encoder_input, edge_attr)
-        # 3. only then do a projection
-        # 4. the decoder can be the same as in the time series transformer
-        
-        src_embed = self.positional_encoding(self.encoder_embedding(src.squeeze()).unsqueeze(0)).transpose(0,1)
-        #TODo remove transpose in next step
-        memory = self.transformer_encoder(src_embed)
-
-        if is_inference:
-            pdb.set_trace()
-            # Start with the last value of the source sequence as the first input to the target
-            tgt = src[:, -1].unsqueeze(1)
-            for i in range(400):
-                # Prepare the target embedding at each step
-                tgt_embed = self.positional_encoding(self.decoder_embedding(tgt), shift=14)
-                # Decode the target embeddings with the previously computed memory
-                output = self.transformer_decoder(tgt_embed.transpose(0, 1), memory)
-                # Pass the decoder's output through the final linear layer
-                next_output = self.output_layer(output).transpose(0, 1)
-
-                # Get the last step's output for the forecast
-                next_step = next_output[:, -1, :]
-
-                # Append the predicted next step to the target sequence
-                tgt = torch.cat((tgt, next_step.unsqueeze(1)), dim=1)
-            return tgt[:, 1:, :], None
-        else:
-            # [T,N,E], T=sequence length, N = batchsize, E =embedding dm?
-            tgt =  torch.cat((src[:,-1].unsqueeze(2), tgt), 1)[:,:-1,:].transpose(0,1)
-            target_sequence_length = tgt.size(1) # 400?!
-            tgt_mask = self.generate_square_subsequent_mask(target_sequence_length).to(tgt.device)
-            tgt_embed = self.positional_encoding(self.decoder_embedding(tgt.transpose(0,2)))
-            output = self.transformer_decoder(tgt_embed.transpose(0,1), memory, tgt_mask) #target, memory target_mask, 
-            output = self.output_layer(output).transpose(1,2)
-            return output, None

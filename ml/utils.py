@@ -1,10 +1,6 @@
 import torch
 import numpy as np
-import pdb
 import matplotlib.pyplot as plt
-import geopandas
-import torch_geometric
-import networkx as nx
 import dataset
 import os
 
@@ -108,10 +104,10 @@ def get_dataset(key, config, train):
     combined_transform = lambda x: remove_transform(noise_transform(x))
     
     dataset_map = {
-        'simulation': dataset.SimulationDataset,
-        'denoising': dataset.SimulationDenoisingDataset,
-        'wave': dataset.WaveDataset,
-        'advection': dataset.AdvectionDiffusionDataset
+        'simulation': dataset.SIDiffusionEquationDataset,
+        'denoising': dataset.SIDiffusionEquationDenoisingDataset,
+        'wave': dataset.WaveEquationDataset,
+        'advection': dataset.AdvectionDiffusionEquationDataset
     }
     return dataset_map[key](config.encoder_length, config.forecast_length, transform=combined_transform)
 
