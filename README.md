@@ -59,7 +59,7 @@ will return an edge_index of 2088 connection, and their distances.
 
 ### Training and Evaluating the Models from the Paper
 
-To start, you can create a virtual environments in the directory ```ml``` and install the required packages by running  ```pip install -r ./requirements.txt```
+To start, you can create a virtual environment in the directory ```ml``` and install the required packages by running  ```pip install -r ./requirements.txt```
 
 In order to start a training process, simply run any of the training scripts with ```python train_<model_name>.py```.
 
