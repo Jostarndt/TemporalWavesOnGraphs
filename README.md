@@ -1,7 +1,7 @@
 # Temporal Waves on Graphs
 ![SI-diffusion](imgs/Graph-image-2.png)
 ## Reference
-DOI: ? Bibtex: ? 
+Paper not published yet.
 
 ## Execution
 
