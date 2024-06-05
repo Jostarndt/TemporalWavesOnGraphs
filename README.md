@@ -57,12 +57,21 @@ dist = dist[2,:]
 
 will return an edge_index of 2088 connection, and their distances. 
 
-### Training the Models from the Paper
+### Training and Evaluating the Models from the Paper
 
-In order to start a training process, simply run any of the training scripts with ``` python train_<model_name>.py ```.
-Model definitions can be found in ```ml/models.py```
+To start, you can create a virtual environments in the directory ```ml``` and install the required packages by running  ```pip install -r ./requirements.txt```
 
-You can set the hyperparameters and other training related variables by modifying the corresponding configuration file ```ml/config/<model_name>.yml```.
+In order to start a training process, simply run any of the training scripts with ```python train_<model_name>.py```.
+
+Model definitions can be found in `ml/models.py`. You can set the hyperparameters and other training-related variables by modifying the corresponding configuration file: `ml/config/<model_name>.yml`.
+In the configuration, you have the option to set `num_eval_runs` and `num_train_runs` to adjust for randomization effects, such as initialization for training and the dataset noise for evaluation.
+
+When the training process finishes; the model, loss plot, and branch plot will be saved into a directory named `<model_name>_<run_number>_<training_dataset>`. 
+
+After training, you can run the evaluation scripts with: ```python evaluate_<model_name>.py```
+
+When the evaluation scripts finish, the day-specific losses will be written to a file named `<model_name>_<eval_dataset>_daily_losses`.
+
 
 ## License
 
