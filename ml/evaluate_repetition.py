@@ -3,10 +3,7 @@ import os
 from torch.utils.data import DataLoader, ConcatDataset
 import torch
 
-sys.path.append(os.path.abspath('')[:os.path.abspath('').find('/ml/')] + '/ml/training_pipeline')
 from config_loader import ConfigLoader 
-from dataset import SimulationDataset, CovidDataset
-#from models import *
 import models
 import utils
 import numpy as np
