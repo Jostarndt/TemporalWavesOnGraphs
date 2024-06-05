@@ -1,9 +1,5 @@
-##
-#  CMake script for the step-1 tutorial program:
-##
-
 # Set the name of the project and target:
-SET(TARGET "step-1")
+SET(TARGET "simulation")
 
 # Declare all source files the target consists of. Here, this is only
 # the one step-X.cc file, but as you expand your project you may wish

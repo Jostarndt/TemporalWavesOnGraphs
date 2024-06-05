@@ -1,6 +1,6 @@
 encoder_length: !!int 14
 forecast_length: !!int 14
-device: !!int 1
+device: !!int 0
 model_name: repetition
 eval_datasources : [['simulation']]
 noise:

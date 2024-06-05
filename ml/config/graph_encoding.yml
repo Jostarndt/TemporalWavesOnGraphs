@@ -5,8 +5,8 @@ hidden_size: !!int 128
 dropout: 0.2 
 weight_decay: 0.0e-4 
 learning_rate: 5.0e-6
-device: !!int 3
-model_name: HySonLab
+device: !!int 0
+model_name: graph_encoding
 datasources: [['simulation']]
 eval_datasources : [['simulation']]
 noise:

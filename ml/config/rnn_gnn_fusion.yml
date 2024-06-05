@@ -6,8 +6,8 @@ weight_decay: 0.0e-4
 rnn_hidden_size: [64, 64, 64] 
 learning_rate: 5.0e-6
 learning_rate_gnn: 1.0e-5 
-device: !!int 2
-model_name: time_and_graph
+device: !!int 0
+model_name: rnn_gnn_fusion
 datasources: [['simulation']]
 eval_datasources : [['simulation']]
 noise:

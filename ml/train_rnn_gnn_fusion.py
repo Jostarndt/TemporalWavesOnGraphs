@@ -137,8 +137,8 @@ def main():
             optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay)
             
             # DataLoader setup for each run
-            train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True, num_workers=24)
-            validation_loader = DataLoader(validation_dataset, batch_size=1, shuffle=False, num_workers=24)
+            train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True)
+            validation_loader = DataLoader(validation_dataset, batch_size=1, shuffle=False)
 
 
             # Train the model for this run

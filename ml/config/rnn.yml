@@ -7,7 +7,7 @@ rnn_hidden_size: [64, 64, 64]
 learning_rate: 5.0e-6 
 weight_decay: 0.0 
 device: !!int 0
-model_name: sauber
+model_name: rnn
 datasources: [['simulation']]
 eval_datasources : [['simulation']]
 noise:

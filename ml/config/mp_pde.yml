@@ -5,8 +5,8 @@ time_window: !!int 14
 hidden_features: 128
 hidden_layer: 6
 learning_rate: 5.0e-6
-device: !!int 1
-model_name: brandstetter
+device: !!int 0
+model_name: mp_pde
 datasources: [['simulation']]
 eval_datasources : [['simulation']]
 noise:

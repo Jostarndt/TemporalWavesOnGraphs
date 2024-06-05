@@ -589,7 +589,7 @@ class GraphEncoding(nn.Module):
         self.rnn2 = nn.LSTM(nhid, nhid, 1)
         
         self.fc1 = nn.Linear(2*nhid+window*nfeat, nhid)
-        self.fc2 = nn.Linear( nhid, nout)
+        self.fc2 = nn.Linear(nhid, nout)
         
         self.dropout = nn.Dropout(dropout)
         self.relu = nn.ReLU()

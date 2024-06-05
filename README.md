@@ -1,5 +1,5 @@
 # Temporal Waves on Graphs
-
+![SI-diffusion](imgs/Graph-image-2.png)
 ## Reference
 DOI: ? Bibtex: ? 
 
@@ -8,7 +8,7 @@ DOI: ? Bibtex: ?
 ### Requirements
 Installation of *deal.ii* using official 
 [deal.ii installation](https://dealii.org/download.html). As this is tested on 
-Ubuntu, this can ?? be done with
+Ubuntu, this can be done with
 
 ```
 apt-get install libdeal.ii-dev
@@ -17,7 +17,7 @@ apt-get install libdeal.ii-dev
 
 ### Running the Simulation
 
-1. ``` cd simulation ```
+1. ``` cd pde_solver/wave_equation/ ```
 2. ``` cmake . ```
 3. ``` make run ```
 
@@ -27,7 +27,8 @@ Running the simulation as described above will result in multiple CSVs and .vtk
  files, named after the simulation and its respective timestep. VKT files can be
  visualized with 
 [ParaView](https://gitlab.kitware.com/paraview/paraview/-/tree/master). The CSVs
- have to be concatenated to form a new dataset.
+ have to be concatenated to form a new dataset, as for every time-step one CSV is
+ generated.
 
 ## Data Usage (without execution)
 The data can be loaded and used with only numpy.
@@ -64,3 +65,9 @@ Model definitions can be found in ```ml/models.py```
 You can set the hyperparameters and other training related variables by modifying the corresponding configuration file ```ml/config/<model_name>.yml```.
 
 ## License
+
+Note, that the [deal.ii](https://dealii.org/) library is licensed under GNU LESSER GENERAL261
+PUBLIC LICENSE v2.1 and has to be cited accordingly.
+
+Our code is also licensed with the GNU LESSER GENERAL261 PUBLIC LICENSE v2.1.
+Our datasets are published under the CC BY 4.0 license.
