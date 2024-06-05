@@ -8,7 +8,7 @@ DOI: ? Bibtex: ?
 ### Requirements
 Installation of *deal.ii* using official 
 [deal.ii installation](https://dealii.org/download.html). As this is tested on 
-Ubuntu, this can ?? be done with
+Ubuntu, this can be done with
 
 ```
 apt-get install libdeal.ii-dev
