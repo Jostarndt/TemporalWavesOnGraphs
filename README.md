@@ -26,9 +26,9 @@ wave equation run the following:
 The other equations work analogously.
 Note that in the three directories corresponding to the three PDEs, there are 
 the different files: **simulation.cc** contains the relevant C++ code, 
-**CMakesLists.txt** help to create the executables, **.msh** file contains the
-mesh necessary for the FEM, generated from gmsh, and **.csv** contains the
-coordinates of the points on which the solution gets evaluated.
+**CMakesLists.txt** helps to create the executables, **.msh** file contains the
+mesh necessary for the FEM, and **.csv** contains the
+coordinates of the points on which the solutions are evaluated.
 
 ### Using the results
 
