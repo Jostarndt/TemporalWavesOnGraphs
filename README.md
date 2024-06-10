@@ -14,12 +14,21 @@ Ubuntu, this can be done with
 apt-get install libdeal.ii-dev
 ```
 
+There are three simulations, to exemplary execute the simulation of the
+wave equation run the following:
 
 ### Running the Simulation
 
 1. ``` cd pde_solver/wave_equation/ ```
 2. ``` cmake . ```
 3. ``` make run ```
+
+The other equations work analogously.
+Note that in the three directories corresponding to the three PDEs, there are 
+the different files: **simulation.cc** contains the relevant C++ code, 
+**CMakesLists.txt** help to create the executables, **.msh** file contains the
+mesh necessary for the FEM, generated from gmsh, and **.csv** contains the
+coordinates of the points on which the solution gets evaluated.
 
 ### Using the results
 
